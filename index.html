@@ -8,10 +8,712 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-  <!-- CSS e scripts omitidos para brevidade, mas conteriam todas as funcionalidades discutidas -->
+  <style>
+    :root{--bg:#f8fafc;--card:#ffffff;--muted:#475569;--text:#0f172a;--accent:#22c55e;--danger:#ef4444;--info:#3b82f6}
+    *{box-sizing:border-box}html,body{height:100%}
+    body{margin:0;background:var(--bg);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;color:var(--text)}
+    .wrap{max-width:880px;margin:0 auto;padding:12px}
+    header{position:sticky;top:0;background:#ffffffd9;backdrop-filter:saturate(1.4) blur(6px);z-index:10;border-bottom:1px solid #e2e8f0}
+    .hbar{display:flex;gap:8px;align-items:center;justify-content:space-between;padding:10px 6px}
+    .title{font-weight:700;letter-spacing:.2px}
+    .btn{appearance:none;border:0;border-radius:12px;padding:10px 12px;display:inline-flex;align-items:center;gap:8px;color:#ffffff;background:var(--info);font-weight:600;cursor:pointer}
+    .btn.small{padding:6px 10px;border-radius:10px;font-size:.9rem}
+    .btn.ghost{background:transparent;color:var(--text);border:1px solid #cbd5e1}
+    .btn.success{background:var(--accent);color:#fff}
+    .btn.danger{background:var(--danger);color:#fff}
+    input,select,textarea{width:100%;padding:12px 14px;border-radius:12px;border:1px solid #cbd5e1;background:#ffffff;color:var(--text)}
+    label{font-size:.9rem;color:var(--muted)}
+    .card{background:var(--card);border:1px solid #e2e8f0;border-radius:16px;padding:12px;box-shadow:0 1px 2px rgba(0,0,0,0.05)}
+    .grid{display:grid;gap:10px}
+    .grid.cols-2{grid-template-columns:1fr 1fr}
+    @media(max-width:640px){.grid.cols-2{grid-template-columns:1fr}}
+    .chip{font-size:.75rem;padding:4px 8px;border-radius:999px;border:1px solid #cbd5e1;color:var(--muted);background:#f1f5f9}
+    table{width:100%;border-collapse:separate;border-spacing:0 8px}
+    th,td{padding:10px;text-align:left;font-size:.95rem}
+    thead th{color:var(--muted);font-weight:600}
+    tbody tr{background:#ffffff;border:1px solid #e2e8f0}
+    tbody tr td:first-child{border-top-left-radius:12px;border-bottom-left-radius:12px}
+    tbody tr td:last-child{border-top-right-radius:12px;border-bottom-right-radius:12px}
+    .right{text-align:right}
+    .row{display:flex;gap:10px;align-items:center}
+    .pill{padding:2px 8px;border-radius:999px;font-size:.75rem;border:1px solid #cbd5e1;color:var(--muted);background:#f8fafc}
+    .pill.manual{background:#e2e8f0}
+    .pill.fatura{background:#e0f2fe}
+    .pill.nota{background:#ecfccb}
+    .muted{color:var(--muted)}
+    .hidden{display:none}
+    .divider{height:1px;background:#e2e8f0;margin:10px 0}
+    .footer{position:sticky;bottom:0;padding:10px;background:#ffffffd9;border-top:1px solid #e2e8f0;backdrop-filter:blur(6px)}
+    .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;background:#ffffff;border:1px solid #e2e8f0;padding:10px 14px;border-radius:12px;box-shadow:0 2px 4px rgba(0,0,0,0.1)}
+    .tag{font-size:.75rem;color:#64748b}
+    .hint{font-size:.8rem;color:#64748b}
+    /* modal */
+    .modal{position:fixed;inset:0;background:rgba(15,23,42,.35);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;padding:16px}
+    .modal.show{display:flex}
+    .modal .panel{background:#fff;border:1px solid #e2e8f0;border-radius:16px;max-width:880px;width:100%;max-height:90vh;overflow:auto;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,.15)}
+  </style>
+  <script src="https://unpkg.com/tesseract.js@5.1.0/dist/tesseract.min.js"></script>
+  <!-- PDF.js para OCR de PDFs -->
+  <script type="module">import "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.3.136/pdf.min.mjs";</script>
+  <!-- jsPDF para exportar PDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 </head>
 <body>
-  <!-- Estrutura principal do app, incluindo seção Pessoas, Inserir manual, Upload OCR, filtros, relatório mensal com dropdown de pessoas e modal de consolidação -->
-  <!-- Script contendo funções de renderização, OCR, exportação PDF, edição de pessoas etc. -->
+  <header class="wrap">
+    <div class="hbar">
+      <div class="row" style="gap:8px">
+        <span class="title">📒 Gestor de Despesas</span>
+        <span id="periodTag" class="chip"></span>
+      </div>
+      <div class="row">
+        <button class="btn small ghost" id="btnReset">Limpar</button>
+        <button class="btn small" id="btnExport">Exportar</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap" style="display:grid;gap:12px;margin-bottom:90px">
+    <section class="card">
+      <div class="row" style="justify-content:space-between">
+        <h3 style="margin:6px 0">👤 Pessoas</h3>
+        <div class="row">
+          <button class="btn small" id="btnAddPessoa">Adicionar pessoa</button>
+          <button class="btn small ghost" id="btnManagePessoas" title="Editar nomes">Editar pessoas</button>
+        </div>
+      </div>
+      <div id="pessoasChips" class="row" style="flex-wrap:wrap"></div>
+    </section>
+
+    <section class="card">
+      <h3 style="margin:6px 0">➕ Inserir manual</h3>
+      <div class="grid cols-2">
+        <div>
+          <label>Data <span class="hint">ex. 20/07/2025</span></label>
+          <input type="text" id="inData" placeholder="dd/mm/aaaa" />
+        </div>
+        <div>
+          <label>Pessoas (selecione uma ou mais)</label>
+          <select id="inPessoa" multiple size="4"></select>
+        </div>
+        <div>
+          <label>Descrição</label>
+          <input id="inDesc" placeholder="Ex. Supermercado" />
+        </div>
+        <div>
+          <label>Valor</label>
+          <input id="inValor" inputmode="decimal" placeholder="0,00" />
+        </div>
+        <div>
+          <label>Origem</label>
+          <select id="inOrigem">
+            <option value="manual">Manual</option>
+            <option value="nota">Nota fiscal</option>
+            <option value="fatura">Fatura cartão</option>
+          </select>
+        </div>
+        <div>
+          <label class="row" style="justify-content:space-between">Crédito?
+            <input id="inCredito" type="checkbox" />
+          </label>
+        </div>
+      </div>
+      <div class="row" style="margin-top:8px;gap:8px">
+        <button class="btn success" id="btnAdd">Adicionar</button>
+        <button class="btn ghost" id="btnParcela">Gerar parceladas</button>
+      </div>
+      <p class="muted" style="margin:8px 0 0">Se escolher várias pessoas, o valor é dividido igualmente. Depois você pode ajustar valores linha a linha.</p>
+    </section>
+
+    <section class="card">
+      <div class="row" style="justify-content:space-between;align-items:center">
+        <h3 style="margin:6px 0">📷 Upload fatura/nota (OCR)</h3>
+        <span class="tag">Experimental</span>
+      </div>
+      <input id="fileInput" type="file" accept="image/*,.pdf" />
+      <div class="divider"></div>
+      <details>
+        <summary class="muted">Como funciona</summary>
+        <ul class="muted">
+          <li>Lê texto com Tesseract.js no seu navegador, incluindo manuscrito simples.</li>
+          <li>Se a descrição contiver nomes de pessoas cadastradas, divide automaticamente entre elas.</li>
+          <li>Edite as linhas se algo vier errado. OCR pode falhar com fotos ruins.</li>
+        </ul>
+      </details>
+    </section>
+
+    <section class="card">
+      <div class="grid cols-2">
+        <div>
+          <label>Filtrar por pessoa</label>
+          <select id="fPessoa"><option value="">Todas</option></select>
+        </div>
+        <div>
+          <label>Origem</label>
+          <select id="fOrigem">
+            <option value="">Todas</option>
+            <option value="manual">Manual</option>
+            <option value="nota">Nota fiscal</option>
+            <option value="fatura">Fatura</option>
+            <option value="credito">Créditos</option>
+          </select>
+        </div>
+        <div>
+          <label>Mês</label>
+          <select id="fMes">
+            <option value="">Todos</option>
+            <option value="1">Jan</option><option value="2">Fev</option><option value="3">Mar</option><option value="4">Abr</option>
+            <option value="5">Mai</option><option value="6">Jun</option><option value="7">Jul</option><option value="8">Ago</option>
+            <option value="9">Set</option><option value="10">Out</option><option value="11">Nov</option><option value="12">Dez</option>
+          </select>
+        </div>
+        <div>
+          <label>Ano</label>
+          <input id="fAno" type="number" placeholder="ex. 2025" />
+        </div>
+      </div>
+    </section>
+
+    <!-- RELATÓRIO MENSAL -->
+    <section class="card">
+      <div class="row" style="justify-content:space-between;align-items:center">
+        <h3 style="margin:6px 0">📊 Relatório mensal</h3>
+        <div class="row" style="gap:8px;flex-wrap:wrap">
+          <select id="rMes">
+            <option value="1">Jan</option><option value="2">Fev</option><option value="3">Mar</option><option value="4">Abr</option>
+            <option value="5">Mai</option><option value="6">Jun</option><option value="7">Jul</option><option value="8">Ago</option>
+            <option value="9">Set</option><option value="10">Out</option><option value="11">Nov</option><option value="12">Dez</option>
+          </select>
+          <input id="rAno" type="number" style="width:120px" />
+          <select id="rPessoas" multiple size="3" title="Selecione pessoas para o PDF" style="min-width:160px"></select>
+          <label class="row" style="gap:6px"><input type="checkbox" id="rTodos" checked>Todos</label>
+          <button class="btn small" id="btnVerRel">Ver relatório</button>
+          <button class="btn small ghost" id="btnPdfRel">Gerar PDF</button>
+        </div>
+      </div>
+      <div id="reportView" class="grid" style="margin-top:8px"></div>
+    </section>
+
+    <!-- ITENS -->
+    <section class="card">
+      <div class="row" style="justify-content:space-between;align-items:center">
+        <h3 style="margin:6px 0">🧾 Itens</h3>
+        <button class="btn small danger" id="btnDelSel">Excluir selecionados</button>
+      </div>
+      <div class="divider"></div>
+      <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div class="muted" id="countInfo">0 itens</div>
+        <div class="muted" id="sumInfo">Total R$ 0,00</div>
+      </div>
+      <div style="overflow:auto;max-height:42vh">
+        <table id="tbl">
+          <thead>
+            <tr>
+              <th><input type="checkbox" id="selAll"></th>
+              <th>Data</th>
+              <th>Descrição</th>
+              <th>Pessoa</th>
+              <th class="right">Valor</th>
+              <th>Origem</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <!-- MODAL GERENCIAR PESSOAS -->
+  <div id="modalPessoas" class="modal" role="dialog" aria-modal="true">
+    <div class="panel">
+      <div class="row" style="justify-content:space-between;align-items:center">
+        <h3>Editar pessoas</h3>
+        <div class="row" style="gap:8px">
+          <button class="btn small ghost" id="btnAddPessoaModal">Adicionar</button>
+          <button class="btn small" id="btnSalvarPessoas">Salvar alterações</button>
+          <button class="btn small ghost" id="btnFecharPessoas">Fechar</button>
+        </div>
+      </div>
+      <p class="muted" style="margin:6px 0">Clique no nome para editar. Para remover, use o botão 🗑 e escolha o que fazer com os lançamentos dessa pessoa.</p>
+      <div id="listaPessoas" class="grid" style="gap:6px"></div>
+    </div>
+  </div>
+
+  <div class="footer wrap">
+    <div class="row" style="justify-content:space-between;align-items:center">
+      <div id="resume" class="muted">Sem consolidação</div>
+      <div class="row" style="gap:8px">
+        <button class="btn ghost" id="btnImport">Importar</button>
+        <button class="btn success" id="btnFinalizar">Finalizar e consolidar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL CONSOLIDAÇÃO FINAL -->
+  <div id="modalFinal" class="modal" role="dialog" aria-modal="true">
+    <div class="panel">
+      <div class="row" style="justify-content:space-between;align-items:center">
+        <h3>Consolidação final</h3>
+        <button class="btn small ghost" id="btnFecharModal">Fechar</button>
+      </div>
+      <div id="finalResumo" style="margin:8px 0" class="muted"></div>
+      <div id="finalTabela"></div>
+      <div class="divider"></div>
+      <div class="row" style="gap:8px;justify-content:flex-end">
+        <button class="btn ghost" id="btnContinuarEditando">Voltar e adicionar mais</button>
+        <button class="btn success" id="btnPdfFinal">Gerar PDF</button>
+      </div>
+    </div>
+  </div>
+
+  <template id="tpl-row">
+    <tr>
+      <td><input type="checkbox" class="sel"></td>
+      <td><input class="cell date" type="text" placeholder="dd/mm/aaaa"></td>
+      <td><input class="cell desc" placeholder="Descrição"></td>
+      <td>
+        <select class="cell pessoa"></select>
+      </td>
+      <td class="right"><input class="cell valor" inputmode="decimal" placeholder="0,00"></td>
+      <td>
+        <div class="row" style="gap:6px">
+          <span class="pill src"></span>
+          <button class="btn small ghost edit" title="reescrever">✏️</button>
+        </div>
+      </td>
+    </tr>
+  </template>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script>
+    const fmtBR = n => (n||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})
+    const parseBR = (s='')=>{ s=(s+"").replace(/[^0-9,.-]/g,'').replace('.', '').replace(',', '.'); let n=parseFloat(s); return isNaN(n)?0:n }
+    const uid = ()=>'id'+Math.random().toString(36).slice(2,9)
+    const todayISO = ()=>new Date().toISOString().slice(0,10)
+    const show = (msg)=>{const t=document.getElementById('toast');t.textContent=msg;t.classList.remove('hidden');setTimeout(()=>t.classList.add('hidden'),1800)}
+    const titleCase = s=> s.replace(/\\s+/g,' ').trim().toLowerCase().replace(/(^|[\\s\\-\\./])(\\p{L})/gu,(m,sp,ch)=>sp+ch.toUpperCase())
+
+    const toISO = (s)=>{ if(!s) return todayISO(); s=s.trim(); if(/\\d{4}-\\d{2}-\\d{2}/.test(s)) return s; const m=s.match(/(\\d{1,2})[\\/](\\d{1,2})[\\/](\\d{2,4})/); if(m){ const [_,d,mm,y]=m; const yy=(y.length===2?('20'+y):y); const dt=new Date(+yy, +mm-1, +d); return dt.toISOString().slice(0,10) } return todayISO() }
+    const toBR = (iso)=>{ if(!iso) return ''; const d=new Date(iso); const dd=String(d.getDate()).padStart(2,'0'); const mm=String(d.getMonth()+1).padStart(2,'0'); const yy=d.getFullYear(); return `${dd}/${mm}/${yy}` }
+
+    const store={get(){ try{ return JSON.parse(localStorage.getItem('despesa.app')||'{}') }catch{ return {} } },set(v){ localStorage.setItem('despesa.app', JSON.stringify(v)) }}
+    const DEFAULT_PESSOAS=[\"Eliza\",\"Eluza\",\"Erica\",\"Ivonete\",\"Luciano\",\"Michele\",\"Vera\",\"Vera e Tonho\"]
+    let state = Object.assign({pessoas:[...DEFAULT_PESSOAS], itens:[]}, store.get())
+
+    const tbody=document.getElementById('tbody')
+    const inPessoa=document.getElementById('inPessoa')
+    const pessoasChips=document.getElementById('pessoasChips')
+    const modalFinal=document.getElementById('modalFinal')
+    const finalResumo=document.getElementById('finalResumo')
+    const finalTabela=document.getElementById('finalTabela')
+    const reportView=document.getElementById('reportView')
+    const rMes=document.getElementById('rMes')
+    const rAno=document.getElementById('rAno')
+    const rPessoas=document.getElementById('rPessoas')
+    const rTodos=document.getElementById('rTodos')
+
+    function save(){ store.set(state) }
+
+    function renderPessoas(){
+      inPessoa.innerHTML = state.pessoas.map(p=>`<option value=\"${p}\">${p}</option>`).join('')
+      document.getElementById('fPessoa').innerHTML = '<option value=\"\">Todas</option>'+state.pessoas.map(p=>`<option>${p}</option>`).join('')
+      pessoasChips.innerHTML = state.pessoas.map(p=>`<span class=\"pill\">${p}</span>`).join('')
+      if(rPessoas){ rPessoas.innerHTML = state.pessoas.map(p=>`<option value=\"${p}\">${p}</option>`).join('') }
+    }
+
+    document.getElementById('btnAddPessoa').onclick=()=>{
+      const n = prompt('Nome da pessoa:')
+      if(!n) return
+      if(!state.pessoas.includes(n)) state.pessoas.push(n)
+      state.pessoas.sort((a,b)=>a.localeCompare(b,'pt-BR',{sensitivity:'base'}))
+      save(); renderPessoas(); rebuildPessoaSelects(); show('Pessoa adicionada')
+    }
+
+    // ====== Editor de Pessoas (modal) ======
+    const modalPessoas=document.getElementById('modalPessoas')
+    const listaPessoas=document.getElementById('listaPessoas')
+    document.getElementById('btnManagePessoas').onclick=()=>{ abrirModalPessoas() }
+    document.getElementById('btnFecharPessoas').onclick=()=> modalPessoas.classList.remove('show')
+    document.getElementById('btnAddPessoaModal').onclick=()=> addLinhaPessoa('')
+    document.getElementById('btnSalvarPessoas').onclick=salvarPessoas
+
+    function abrirModalPessoas(){
+      listaPessoas.innerHTML=''
+      state.pessoas.forEach(n=> addLinhaPessoa(n))
+      modalPessoas.classList.add('show')
+    }
+    function addLinhaPessoa(nome){
+      const row=document.createElement('div'); row.className='row'; row.style.gap='8px'
+      row.innerHTML=`<input class=\"pNome\" placeholder=\"Nome\" value=\"${nome||''}\" style=\"flex:1\">
+        <button class=\"btn small danger pDel\" title=\"Excluir\">🗑</button>`
+      row.querySelector('.pDel').onclick=()=> excluirLinhaPessoa(row)
+      listaPessoas.appendChild(row)
+    }
+    function excluirLinhaPessoa(row){
+      const nomeAnt=(row.querySelector('.pNome').value||'').trim()
+      if(!nomeAnt){ row.remove(); return }
+      const outros = Array.from(listaPessoas.querySelectorAll('.pNome')).map(i=>i.value.trim()).filter(v=>v && v!==nomeAnt)
+      let escolha = prompt(`Remover \"${nomeAnt}\". Digite um nome existente para transferir os lançamentos ou deixe vazio para remover os lançamentos dessa pessoa.\nOpções: ${outros.join(', ')}`,'')
+      escolha=(escolha||'').trim()
+      if(escolha && !outros.includes(escolha)){ alert('Nome inválido. Operação cancelada.'); return }
+      if(escolha){ state.itens.forEach(it=>{ if(it.pessoa===nomeAnt) it.pessoa=escolha }) }
+      else { state.itens = state.itens.filter(it=> it.pessoa!==nomeAnt) }
+      // também remove do state.pessoas
+      state.pessoas = state.pessoas.filter(p=>p!==nomeAnt)
+      row.remove(); save(); renderPessoas(); renderTable(); show('Atualizado')
+    }
+    function salvarPessoas(){
+      const nomes = Array.from(listaPessoas.querySelectorAll('.pNome')).map(i=>i.value.trim()).filter(Boolean)
+      const uniq=[...new Set(nomes)]
+      if(!uniq.length){ alert('Inclua ao menos um nome.'); return }
+      const antigos=[...state.pessoas]
+      state.pessoas=[...uniq]
+      antigos.forEach((old,i)=>{
+        const novo=uniq[i]
+        if(old && novo && old!==novo){ state.itens.forEach(it=>{ if(it.pessoa===old) it.pessoa=novo }) }
+      })
+      // corrige itens com pessoa inexistente
+      const fallback=state.pessoas[0]
+      state.itens.forEach(it=>{ if(!state.pessoas.includes(it.pessoa)) it.pessoa=fallback })
+      save(); renderPessoas(); rebuildPessoaSelects(); renderTable(); renderRelatorio(); modalPessoas.classList.remove('show'); show('Pessoas atualizadas')
+    }
+
+    function rebuildPessoaSelects(){
+      document.querySelectorAll('select.cell.pessoa').forEach(sel=>{
+        const cur=sel.value
+        sel.innerHTML = state.pessoas.map(p=>`<option>${p}</option>`).join('')
+        if(cur) sel.value=cur
+      })
+    }
+
+    function renderTable(){
+      const fP=document.getElementById('fPessoa').value
+      const fO=document.getElementById('fOrigem').value
+      const fM=document.getElementById('fMes').value
+      const fY=parseInt(document.getElementById('fAno').value||'')
+      tbody.innerHTML=''
+      let total=0, count=0
+      state.itens.forEach(it=>{
+        if(fP && it.pessoa!==fP) return
+        if(fO){
+          if(fO==='credito' && !it.credito) return
+          if(fO!=='credito' && it.credito) return
+          if(['manual','nota','fatura'].includes(fO) && it.origem!==fO) return
+        }
+        const d=new Date(it.data)
+        if(fM && String(d.getMonth()+1)!==String(fM)) return
+        if(fY && d.getFullYear()!==fY) return
+        const tr = document.getElementById('tpl-row').content.firstElementChild.cloneNode(true)
+        tr.dataset.id=it.id
+        tr.querySelector('.date').value = toBR(it.data)
+        tr.querySelector('.desc').value = it.desc
+        const sel=tr.querySelector('.pessoa'); sel.innerHTML=state.pessoas.map(p=>`<option>${p}</option>`).join(''); sel.value=it.pessoa
+        tr.querySelector('.valor').value = it.valor.toString().replace('.', ',')
+        const src=tr.querySelector('.src'); src.textContent = it.credito? 'Crédito' : (it.origem||'manual'); src.classList.add(it.origem||'manual')
+        tr.querySelector('.edit').onclick=()=>{ const d=prompt('Reescrever descrição:', tr.querySelector('.desc').value); if(d!=null){ tr.querySelector('.desc').value=smartClean(d) ; applyRow(tr) } }
+        tr.querySelectorAll('.cell').forEach(inp=> inp.onchange=()=>applyRow(tr))
+        tbody.appendChild(tr)
+        total += it.credito? -it.valor : it.valor
+        count++
+      })
+      document.getElementById('countInfo').textContent = `${count} itens`
+      document.getElementById('sumInfo').textContent = `${fmtBR(total)}`
+      document.getElementById('selAll').checked=false
+    }
+
+    function applyRow(tr){
+      const id=tr.dataset.id
+      const idx=state.itens.findIndex(x=>x.id===id)
+      if(idx<0) return
+      const row=state.itens[idx]
+      row.data = toISO(tr.querySelector('.date').value) || todayISO()
+      row.desc = smartClean(tr.querySelector('.desc').value)
+      row.pessoa = tr.querySelector('.pessoa').value
+      row.valor = parseBR(tr.querySelector('.valor').value)
+      save(); renderTable()
+    }
+
+    // Adicionar manual com divisão por pessoas
+    document.getElementById('btnAdd').onclick=()=>{
+      const pessoasSel=[...inPessoa.selectedOptions].map(o=>o.value)
+      const dataISO = toISO(document.getElementById('inData').value || todayISO())
+      const descBase = smartClean(document.getElementById('inDesc').value||'Sem descrição')
+      const origem = document.getElementById('inOrigem').value
+      const credito = document.getElementById('inCredito').checked
+      const valor = parseBR(document.getElementById('inValor').value)
+      if(!valor){ show('Informe um valor'); return }
+      const pessoas = pessoasSel.length? pessoasSel : [state.pessoas[0]]
+      const fra = +(valor / pessoas.length).toFixed(2)
+      pessoas.forEach(p=>{
+        state.itens.push({ id:uid(), data:dataISO, desc: descBase, pessoa:p, valor: fra, origem, credito })
+      })
+      save(); renderTable(); show(pessoas.length>1? 'Valor dividido entre pessoas' : 'Item adicionado')
+      document.getElementById('inDesc').value=''; document.getElementById('inValor').value=''
+    }
+
+    // Parceladas: gera N parcelas dividindo entre pessoas selecionadas
+    document.getElementById('btnParcela').onclick=()=>{
+      const pessoasSel=[...inPessoa.selectedOptions].map(o=>o.value)
+      const v=parseBR(document.getElementById('inValor').value); if(!v){show('Valor inválido');return}
+      const n=parseInt(prompt('Quantidade de parcelas?','3')); if(!n||n<1) return
+      const dataISO = toISO(document.getElementById('inData').value || todayISO())
+      const base=new Date(dataISO)
+      const pessoas = pessoasSel.length? pessoasSel : [state.pessoas[0]]
+      const fraPessoa = +(v/pessoas.length).toFixed(2)
+      for(let i=1;i<=n;i++){
+        const d=new Date(base); d.setMonth(d.getMonth()+i-1)
+        pessoas.forEach(p=>{
+          state.itens.push({
+            id:uid(),
+            data:d.toISOString().slice(0,10),
+            desc: smartClean((document.getElementById('inDesc').value||'Compra')+` (${i}/${n})`),
+            pessoa:p,
+            valor:+(fraPessoa/n).toFixed(2),
+            origem: document.getElementById('inOrigem').value,
+            credito: document.getElementById('inCredito').checked
+          })
+        })
+      }
+      save(); renderTable(); show('Parcelas geradas e divididas')
+    }
+
+    document.getElementById('selAll').onchange=(e)=>{
+      document.querySelectorAll('#tbody .sel').forEach(cb=>cb.checked=e.target.checked)
+    }
+    document.getElementById('btnDelSel').onclick=()=>{
+      const ids=[...document.querySelectorAll('#tbody tr')].filter(tr=>tr.querySelector('.sel').checked).map(tr=>tr.dataset.id)
+      state.itens = state.itens.filter(it=>!ids.includes(it.id))
+      save(); renderTable(); show('Itens excluídos')
+    }
+
+    // Consolidar abre modal final
+    document.getElementById('btnFinalizar').onclick=()=>{
+      const {subtotal, lista} = calcSubtotal()
+      const lines = Object.entries(subtotal).map(([p,v])=>`${p}: ${fmtBR(v)}`)
+      finalResumo.textContent = lines.join(' · ')
+      finalTabela.innerHTML = buildTableHTML(lista)
+      modalFinal.classList.add('show')
+    }
+    document.getElementById('btnFecharModal').onclick=()=> modalFinal.classList.remove('show')
+    document.getElementById('btnContinuarEditando').onclick=()=> modalFinal.classList.remove('show')
+
+    // Export/Import
+    document.getElementById('btnExport').onclick=()=>{
+      const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'})
+      const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='despesas.json'; a.click()
+    }
+    document.getElementById('btnImport').onclick=()=>{
+      const inp=document.createElement('input'); inp.type='file'; inp.accept='application/json';
+      inp.onchange=()=>{ const f=inp.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ try{ state=JSON.parse(r.result); save(); renderPessoas(); renderTable(); renderRelatorio(); show('Importado') }catch{ show('Arquivo inválido') } }; r.readAsText(f) }
+      inp.click()
+    }
+    document.getElementById('btnReset').onclick=()=>{
+      if(confirm('Limpar todos os dados?')){ state={pessoas:[...DEFAULT_PESSOAS],itens:[]}; save(); renderPessoas(); renderTable(); renderRelatorio(); document.getElementById('resume').textContent='Sem consolidação'; show('Zerado') }
+    }
+
+    // OCR: imagem e PDF
+    document.getElementById('fileInput').addEventListener('change', async (e)=>{
+      const f=e.target.files[0]; if(!f) return
+      show('Lendo arquivo…')
+      try{
+        if(f.type==='application/pdf'){
+          await ocrFromPDF(f)
+        }else{
+          const {data:{text}} = await Tesseract.recognize(f, 'por+eng', { tessedit_pageseg_mode:6 })
+          addOCRText(text)
+        }
+      }catch(err){ console.error(err); show('Falha no OCR') }
+      e.target.value=''
+    })
+
+    function parseOCR(txt){
+      const lines = txt.split(/\\n+/).map(l=>l.trim()).filter(Boolean)
+      const out=[]
+      const reData = /(\\b\\d{1,2}[\\/-]\\d{1,2}[\\/-]\\d{2,4}\\b)/
+      const reVal = /(R?\\$?\\s?\\d{1,3}(?:[\\.,]\\d{3})*[\\.,]\\d{2})/i
+      for(const l of lines){
+        const md = l.match(reData)
+        const mv = l.match(reVal)
+        if(mv){
+          const data = md? normDate(md[1]) : todayISO()
+          const valor = parseBR(mv[1])
+          let desc = l.replace(reData,'').replace(reVal,'').replace(/\\s{2,}/g,' ').trim()
+          desc = smartClean(desc || 'Compra')
+          const nomes = detectNames(desc)
+          if(nomes.length>1){
+            const fra=+(valor/nomes.length).toFixed(2)
+            nomes.forEach(p=> out.push({ data, desc, valor:fra, pessoa:p, origem:'nota' }))
+          }else{
+            const par = l.match(/(\\d+)[x|\\/](\\d{1,2})/i)
+            if(par){
+              const n = Math.max(1, Math.min(36, parseInt(par[2])))
+              const i = Math.max(1, parseInt(par[1]))
+              for(let k=i;k<=n;k++){
+                out.push({ data:addMonths(data, k-i), desc: `${desc} (${k}/${n})`, valor: +(valor/n).toFixed(2), origem:'fatura' })
+              }
+            }else{
+              out.push({ data, desc, valor, origem:'fatura' })
+            }
+          }
+        }
+      }
+      return out
+    }
+
+    function detectNames(text){
+      const lower=text.toLowerCase()
+      const found=[]
+      state.pessoas.forEach(p=>{
+        const needle=p.toLowerCase()
+        if(new RegExp(`(^|[ ,;-])${needle}([ ,;-]|$)`).test(lower)) found.push(p)
+      })
+      return [...new Set(found)]
+    }
+
+    function normDate(s){
+      const [a,b,c] = s.replace(/-/g,'/').split('/')
+      const dd=a.length===4?c:a, mm=a.length===4?b:b, yy=a.length===4?a:c
+      const d = new Date(parseInt(yy.length===2?('20'+yy):yy), parseInt(mm)-1, parseInt(dd))
+      return d.toISOString().slice(0,10)
+    }
+
+    async function ocrFromPDF(file){
+      const url=URL.createObjectURL(file)
+      const mod = await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.3.136/pdf.min.mjs')
+      const pdf = await mod.getDocument(url).promise
+      let textAll=''
+      const maxPages=Math.min(pdf.numPages,5)
+      for(let p=1;p<=maxPages;p++){
+        const page=await pdf.getPage(p)
+        const viewport=page.getViewport({scale:2})
+        const canvas=document.createElement('canvas')
+        const ctx=canvas.getContext('2d')
+        canvas.width=viewport.width; canvas.height=viewport.height
+        await page.render({canvasContext:ctx, viewport}).promise
+        const blob=await new Promise(res=> canvas.toBlob(res))
+        const {data:{text}} = await Tesseract.recognize(blob,'por+eng',{ tessedit_pageseg_mode:6 })
+        textAll += '\\n' + text
+      }
+      addOCRText(textAll)
+      URL.revokeObjectURL(url)
+    }
+
+    function addOCRText(text){
+      const itens=parseOCR(text)
+      if(!itens.length){show('Nada reconhecido. Edite manualmente.');return}
+      itens.forEach(x=> state.itens.push(Object.assign({id:uid(), pessoa: state.pessoas[0], credito:false}, x)))
+      save(); renderTable(); renderRelatorio(); show(`${itens.length} linha(s) adicionadas`)
+    }
+
+    function addMonths(iso, m){ const d=new Date(iso); d.setMonth(d.getMonth()+m); return d.toISOString().slice(0,10) }
+
+    function smartClean(s){
+      return titleCase(s)
+        .replace(/\\b(ltda|sa|me|epp|comercio|comércio|supermercado|market|loja|store|pagamento|transacao|transação|debito|crédito|credito|visa|mastercard|inter|nubank|itau|bradesco)\\b/gi,'')
+        .replace(/\\s{2,}/g,' ').trim()
+    }
+
+    // Relatório mensal
+    function monthName(m){return ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'][m-1]}
+    function buildReportData(m,y,people=null){
+      const rows = state.itens.filter(it=>{
+        const d=new Date(it.data)
+        const byMonth = (!m || d.getMonth()+1===m)
+        const byYear = (!y || d.getFullYear()===y)
+        const byPeople = (!people || people.includes(it.pessoa))
+        return byMonth && byYear && byPeople
+      })
+      const porPessoa={}
+      let total=0
+      rows.forEach(it=>{ const val=it.credito? -it.valor : it.valor; porPessoa[it.pessoa]=(porPessoa[it.pessoa]||0)+val; total+=val })
+      return {rows, porPessoa, total}
+    }
+    function buildTableHTML(rows){
+      const head = `<table style="width:100%;border-collapse:separate;border-spacing:0 8px"><thead><tr><th>Data</th><th>Descrição</th><th>Pessoa</th><th style="text-align:right">Valor</th></tr></thead><tbody>`
+      const body = rows.map(it=>`<tr style=\"background:#fff;border:1px solid #e2e8f0\"><td style=\"padding:8px\">${toBR(it.data)}</td><td style=\"padding:8px\">${it.desc}</td><td style=\"padding:8px\">${it.pessoa}</td><td style=\"padding:8px;text-align:right\">${fmtBR(it.credito? -it.valor : it.valor)}</td></tr>`).join('')
+      return head+body+"</tbody></table>"
+    }
+    function renderRelatorio(){
+      const m=parseInt(rMes.value), y=parseInt(rAno.value||new Date().getFullYear())
+      // tela sempre mostra todas as pessoas
+      const {rows, porPessoa, total} = buildReportData(m,y,null)
+      const resumo = Object.entries(porPessoa).sort((a,b)=>a[0].localeCompare(b[0],'pt-BR')).map(([p,v])=>`${p}: ${fmtBR(v)}`).join(' · ')
+      reportView.innerHTML = `
+        <div class="muted">${monthName(m)} / ${y} — Total ${fmtBR(total)}</div>
+        <div class="muted" style="margin-bottom:6px">${resumo||'Sem lançamentos'}</div>
+        ${buildTableHTML(rows)}
+      `
+    }
+
+    // Botões relatório/PDF
+    document.getElementById('btnVerRel').onclick=renderRelatorio
+    document.getElementById('btnPdfRel').onclick=()=>{
+      const m=parseInt(rMes.value), y=parseInt(rAno.value||new Date().getFullYear())
+      const selected = [...(rPessoas?.selectedOptions||[])].map(o=>o.value)
+      const useAll = rTodos?.checked || selected.length===0
+      const data=buildReportData(m,y, useAll ? null : selected)
+      exportPdfRelatorio(m,y,data)
+    }
+    if(rPessoas){ rPessoas.onchange=()=>{ if(rPessoas.selectedOptions.length>0) rTodos.checked=false } }
+    if(rTodos){ rTodos.onchange=()=>{ if(rTodos.checked && rPessoas){ [...rPessoas.options].forEach(o=>o.selected=false) } } }
+
+    document.getElementById('btnPdfFinal').onclick=()=>{
+      const {subtotal, lista}=calcSubtotal()
+      exportPdfConsolidacao(subtotal,lista)
+    }
+
+    function exportPdfRelatorio(m,y,data){
+      const { jsPDF } = window.jspdf
+      const doc = new jsPDF({unit:'pt', format:'a4'})
+      doc.setFontSize(14)
+      doc.text(`Relatório mensal - ${monthName(m)} / ${y}`, 40, 40)
+      doc.setFontSize(11)
+      const resumo = Object.entries(data.porPessoa).sort((a,b)=>a[0].localeCompare(b[0],'pt-BR')).map(([p,v])=>`${p}: ${fmtBR(v)}`).join('  |  ')
+      doc.text(resumo || 'Sem lançamentos', 40, 62, {maxWidth:515})
+      const rows = data.rows.map(it=>[toBR(it.data), it.desc, it.pessoa, fmtBR(it.credito? -it.valor : it.valor)])
+      doc.autoTable({ startY:80, head:[['Data','Descrição','Pessoa','Valor']], body:rows, styles:{fontSize:10, cellPadding:6}, columnStyles:{3:{halign:'right'}}, theme:'grid' })
+      doc.text(`Total: ${fmtBR(data.total)}`, 40, (doc.lastAutoTable?.finalY||80)+24)
+      doc.save(`relatorio-${y}-${String(m).padStart(2,'0')}.pdf`)
+    }
+    function exportPdfConsolidacao(subtotal, lista){
+      const { jsPDF } = window.jspdf
+      const doc = new jsPDF({unit:'pt', format:'a4'})
+      doc.setFontSize(14)
+      doc.text('Consolidação final', 40, 40)
+      doc.setFontSize(11)
+      const resumo = Object.entries(subtotal).map(([p,v])=>`${p}: ${fmtBR(v)}`).join('  |  ')
+      doc.text(resumo || 'Sem lançamentos', 40, 62, {maxWidth:515})
+      const rows = lista.map(it=>[toBR(it.data), it.desc, it.pessoa, fmtBR(it.credito? -it.valor : it.valor)])
+      doc.autoTable({ startY:80, head:[['Data','Descrição','Pessoa','Valor']], body:rows, styles:{fontSize:10, cellPadding:6}, columnStyles:{3:{halign:'right'}}, theme:'grid' })
+      const total = lista.reduce((s,it)=> s + (it.credito? -it.valor : it.valor), 0)
+      doc.text(`Total: ${fmtBR(total)}`, 40, (doc.lastAutoTable?.finalY||80)+24)
+      doc.save('consolidacao.pdf')
+    }
+    function calcSubtotal(){
+      const lista = [...state.itens]
+      const subtotal={}
+      state.pessoas.forEach(p=>subtotal[p]=0)
+      lista.forEach(it=>{ const s = it.credito? -it.valor : it.valor; subtotal[it.pessoa]=(subtotal[it.pessoa]||0)+s })
+      return {subtotal, lista}
+    }
+
+    // Init
+    function init(){
+      renderPessoas();
+      document.getElementById('inData').value=''
+      renderTable()
+      const now=new Date(); rMes.value=String(now.getMonth()+1); rAno.value=String(now.getFullYear())
+      document.getElementById('periodTag').textContent = new Date().toLocaleDateString('pt-BR', {month:'long', year:'numeric'})
+      document.getElementById('fPessoa').onchange=renderTable
+      document.getElementById('fOrigem').onchange=renderTable
+      document.getElementById('fMes').onchange=renderTable
+      document.getElementById('fAno').oninput=renderTable
+      // popular dropdown de pessoas do relatório
+      if(rPessoas){ rPessoas.innerHTML = state.pessoas.map(p=>`<option value="${p}">${p}</option>`).join('') }
+      renderRelatorio()
+    }
+    init()
+  </script>
 </body>
 </html>
